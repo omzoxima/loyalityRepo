@@ -4,4 +4,7 @@ node_modules
 .env.local
 *.log
 postgres_data
+generate-qr.js
+*-qr.png
+
 
