@@ -8,6 +8,12 @@ export async function GET() {
     select: {
       id: true, name: true, city: true, pinCode: true, lat: true, lng: true,
       totalSpend: true, points: true, tier: true, isFlagged: true, scanCount: true,
+      createdAt: true,
+      scans: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        select: { createdAt: true },
+      },
     },
   });
   return NextResponse.json(customers);

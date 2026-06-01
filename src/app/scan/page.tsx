@@ -225,11 +225,13 @@ function Flow() {
 
       {/* ---------- 4 SUCCESS ---------- */}
       {screen === "success" && result && (
-        <div className="fade-in flex flex-col min-h-screen">
+        <div className="fade-in flex flex-col min-h-screen pb-6">
           <div className="text-center px-6 pt-12 pb-7 text-white" style={{ background: "linear-gradient(160deg,#0a8f4d,#0a7a5e)" }}>
             <div className="w-[70px] h-[70px] rounded-full bg-white/20 grid place-items-center mx-auto mb-3 text-4xl">✓</div>
-            <h2 className="font-display text-2xl">{result.flagged ? "Scan received" : "Purchase Recorded!"}</h2>
-            <p className="opacity-90 text-sm mt-1">{jar.label} Jar · {result.flagged ? "under review" : `+${result.pointsEarned} points earned`}</p>
+            <h2 className="font-display text-2xl font-bold">
+              {result.flagged ? "Scan Received" : `You received ${result.pointsEarned} points!`}
+            </h2>
+            <p className="opacity-90 text-sm mt-1">{jar.label} Jar · {result.flagged ? "under review" : "Points credited to your account"}</p>
           </div>
           <div className="-mt-4 mx-4 bg-white rounded-2xl shadow-xl p-5 relative z-10">
             <div className="font-display text-4xl font-extrabold text-bisleri leading-none">
@@ -252,9 +254,67 @@ function Flow() {
               This scan was flagged ({result.flagReason}) and is pending review. Points are awarded once verified.
             </p>
           )}
-          <a className="bg-green-500 text-white flex items-center justify-center gap-2 py-3 rounded-xl font-extrabold text-sm mx-4 mt-4"
-            href={`https://wa.me/?text=${encodeURIComponent("I just earned Bisleri loyalty points! 💧")}`}>💬 Share on WhatsApp</a>
-          <div className="p-6"><button onClick={() => location.reload()} className="w-full rounded-xl bg-slate-100 text-bisleri font-extrabold py-4">Done</button></div>
+
+          {/* Dynamic WhatsApp Share with exact points and jar detail */}
+          <a
+            className="bg-green-500 text-white flex items-center justify-center gap-2 py-3.5 rounded-xl font-extrabold text-sm mx-4 mt-4 shadow-sm hover:bg-green-600 transition"
+            href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+              `I just scanned a Bisleri ${jar.label} jar and received ${result.pointsEarned} loyalty points! 💧`
+            )}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            💬 Share on WhatsApp
+          </a>
+
+          {/* Dynamic Customer Scan History List */}
+          {result.scansHistory && result.scansHistory.length > 0 && (
+            <div className="mx-4 mt-4 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+              <h3 className="font-display text-sm font-bold text-slate-800 mb-3 flex items-center justify-between">
+                <span>My Scan History</span>
+                <span className="text-[10px] font-extrabold text-slate-400 bg-slate-100 rounded-full px-2.5 py-0.5 uppercase tracking-wide">
+                  {result.scansHistory.length} scan{result.scansHistory.length > 1 ? "s" : ""}
+                </span>
+              </h3>
+              <div className="flex flex-col gap-2.5 max-h-[220px] overflow-y-auto pr-1">
+                {result.scansHistory.map((s: any) => (
+                  <div key={s.id} className="flex justify-between items-center bg-[#fdfdfc] border border-slate-100 rounded-xl p-3 text-xs">
+                    <div>
+                      <div className="font-bold text-slate-700">{s.jar} Jar Scan</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        {new Date(s.date).toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })} · {s.qrCode}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      {s.status === "FLAGGED" ? (
+                        <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">
+                          🚩 Review
+                        </span>
+                      ) : (
+                        <span className="font-extrabold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                          +{s.points} pts
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="px-4 mt-4">
+            <button
+              onClick={() => location.reload()}
+              className="w-full rounded-xl bg-slate-100 text-bisleri font-extrabold py-4 shadow-sm hover:bg-slate-200 transition"
+            >
+              Done
+            </button>
+          </div>
         </div>
       )}
     </main>

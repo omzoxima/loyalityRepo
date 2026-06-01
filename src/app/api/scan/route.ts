@@ -89,6 +89,21 @@ export async function POST(req: NextRequest) {
     await prisma.customer.update({ where: { id: customer.id }, data: { isFlagged: true } });
   }
 
+  // Fetch recent scans for history display
+  const scansHistory = await prisma.scan.findMany({
+    where: { customerId: customer.id },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+    select: {
+      id: true,
+      createdAt: true,
+      jarSize: true,
+      points: true,
+      status: true,
+      qrCode: true,
+    },
+  });
+
   return NextResponse.json({
     ok: status === "VERIFIED",
     flagged: status === "FLAGGED",
@@ -98,5 +113,13 @@ export async function POST(req: NextRequest) {
     tier: updated.tier,
     next: nextTier(updated.points),
     jarLabel: rule.label,
+    scansHistory: scansHistory.map((s) => ({
+      id: s.id,
+      date: s.createdAt,
+      jar: s.jarSize === "TWENTYL" ? "20L" : "10L",
+      points: s.points,
+      status: s.status,
+      qrCode: s.qrCode,
+    })),
   });
 }
