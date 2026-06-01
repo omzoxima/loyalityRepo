@@ -1,0 +1,109 @@
+// Bisleri Loyalty — PostgreSQL schema
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum JarSize {
+  TENL
+  TWENTYL
+}
+
+enum ScanStatus {
+  VERIFIED
+  FLAGGED
+}
+
+enum Tier {
+  SILVER
+  GOLD
+  PLATINUM
+}
+
+model Customer {
+  id             String   @id @default(cuid())
+  mobile         String   @unique // stored as 10 digits, e.g. 9812345678
+  name           String
+  pinCode        String?
+  city           String?
+  area           String?
+  lat            Float?
+  lng            Float?
+  points         Int      @default(0)
+  totalSpend     Int      @default(0) // in paise
+  tier           Tier     @default(SILVER)
+  scanCount      Int      @default(0)
+  isFlagged      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  scans          Scan[]
+
+  @@index([pinCode])
+  @@index([city])
+}
+
+// Pre-printed QR codes on jars. Lets us detect duplicate scans of the same physical code.
+model QrCode {
+  code       String   @id // e.g. JAR-00123
+  jarSize    JarSize
+  batchId    String?
+  scanCount  Int      @default(0)
+  firstScan  DateTime?
+  scans      Scan[]
+}
+
+model Scan {
+  id            String     @id @default(cuid())
+  customerId    String
+  customer      Customer   @relation(fields: [customerId], references: [id])
+  qrCode        String?
+  qr            QrCode?    @relation(fields: [qrCode], references: [code])
+  jarSize       JarSize
+  value         Int        // paise
+  points        Int
+  lat           Float?
+  lng           Float?
+  pinCode       String?
+  city          String?
+  status        ScanStatus @default(VERIFIED)
+  flagReason    String?
+  createdAt     DateTime   @default(now())
+
+  @@index([customerId])
+  @@index([createdAt])
+  @@index([pinCode])
+}
+
+// OTPs are short-lived; codes are hashed, never stored in plain text.
+model OtpRequest {
+  id         String   @id @default(cuid())
+  mobile     String
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int      @default(0)
+  consumed   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([mobile])
+}
+
+// Known distributor / supplier coordinates — scans inside these geofences are flagged.
+model DistributorZone {
+  id        String  @id @default(cuid())
+  name      String
+  lat       Float
+  lng       Float
+  radiusM   Int     @default(150) // metres
+}
+
+model Admin {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+}
+

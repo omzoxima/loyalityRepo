@@ -1,0 +1,14 @@
+@import "leaflet/dist/leaflet.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+
+.font-display { font-family: var(--font-display), serif; }
+.spin { width:16px;height:16px;border:2.5px solid #cfd4d9;border-top-color:#0057A8;border-radius:50%;animation:sp .8s linear infinite }
+@keyframes sp { to { transform: rotate(360deg) } }
+.fade-in { animation: fade .35s ease }
+@keyframes fade { from { opacity:0; transform: translateY(8px) } to { opacity:1; transform:none } }

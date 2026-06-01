@@ -1,0 +1,19 @@
+2026-05-30 00:44:53.409 IST [3590] LOG:  starting PostgreSQL 17.5 on x86_64-apple-darwin23.6.0, compiled by Apple clang version 16.0.0 (clang-1600.0.26.6), 64-bit
+2026-05-30 00:44:53.411 IST [3590] LOG:  listening on IPv6 address "::1", port 5433
+2026-05-30 00:44:53.411 IST [3590] LOG:  listening on IPv4 address "127.0.0.1", port 5433
+2026-05-30 00:44:53.411 IST [3590] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5433"
+2026-05-30 00:44:53.413 IST [3593] LOG:  database system was shut down at 2026-05-30 00:44:47 IST
+2026-05-30 00:44:53.414 IST [3590] LOG:  database system is ready to accept connections
+2026-05-30 00:47:28.170 IST [4040] LOG:  could not receive data from client: Connection reset by peer
+2026-05-30 00:49:53.414 IST [3591] LOG:  checkpoint starting: time
+2026-05-30 00:51:44.844 IST [3591] LOG:  checkpoint complete: wrote 1103 buffers (6.7%); 0 WAL file(s) added, 0 removed, 0 recycled; write=111.416 s, sync=0.009 s, total=111.430 s; sync files=341, longest=0.001 s, average=0.001 s; distance=6073 kB, estimate=6073 kB; lsn=0/1AF5B70, redo lsn=0/1AF5AE0
+2026-05-30 00:54:53.846 IST [3591] LOG:  checkpoint starting: time
+2026-05-30 00:54:54.462 IST [3591] LOG:  checkpoint complete: wrote 7 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.610 s, sync=0.002 s, total=0.616 s; sync files=5, longest=0.001 s, average=0.001 s; distance=0 kB, estimate=5465 kB; lsn=0/1AF5EF0, redo lsn=0/1AF5E98
+2026-05-30 00:59:53.462 IST [3591] LOG:  checkpoint starting: time
+2026-05-30 00:59:55.502 IST [3591] LOG:  checkpoint complete: wrote 21 buffers (0.1%); 0 WAL file(s) added, 0 removed, 0 recycled; write=2.034 s, sync=0.003 s, total=2.041 s; sync files=17, longest=0.001 s, average=0.001 s; distance=51 kB, estimate=4924 kB; lsn=0/1B02DD8, redo lsn=0/1B02D80
+2026-05-30 01:02:40.935 IST [3590] LOG:  received smart shutdown request
+2026-05-30 01:02:40.937 IST [3590] LOG:  background worker "logical replication launcher" (PID 3596) exited with exit code 1
+2026-05-30 01:02:40.937 IST [3591] LOG:  shutting down
+2026-05-30 01:02:40.938 IST [3591] LOG:  checkpoint starting: shutdown immediate
+2026-05-30 01:02:40.945 IST [3591] LOG:  checkpoint complete: wrote 2 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.003 s, sync=0.001 s, total=0.009 s; sync files=2, longest=0.001 s, average=0.001 s; distance=2 kB, estimate=4432 kB; lsn=0/1B035E0, redo lsn=0/1B035E0
+2026-05-30 01:02:40.960 IST [3590] LOG:  database system is shut down
