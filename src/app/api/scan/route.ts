@@ -49,22 +49,22 @@ export async function POST(req: NextRequest) {
   const rule = jarRule(d.jarSize as JarSize);
   const flagReason = await checkFraud({ qrCode: d.qrCode, lat: d.lat, lng: d.lng, customerId: customer.id });
 
-  // Strictly block duplicate scans and show a clean error message on the frontend OTP screen
-  if (flagReason && flagReason.startsWith("Duplicate QR")) {
+  // Strictly block duplicate scans for the same customer
+  if (flagReason && flagReason.includes("Duplicate QR")) {
     return NextResponse.json({ 
-      error: "This QR code has already been scanned. Each QR code can only be claimed once." 
+      error: "You have already scanned this QR code. Each QR code can only be claimed once per customer." 
     }, { status: 400 });
   }
 
   const status = flagReason ? "FLAGGED" : "VERIFIED";
 
 
-  // Record the scan
+  // Record the scan with detailed area info
   await prisma.scan.create({
     data: {
       customerId: customer.id, qrCode: d.qrCode, jarSize: d.jarSize as JarSize,
       value: rule.valuePaise, points: rule.points, lat: d.lat, lng: d.lng,
-      pinCode: d.pinCode, city: d.city, status, flagReason,
+      pinCode: d.pinCode, city: d.city, area: d.area, status, flagReason,
     },
   });
 

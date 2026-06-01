@@ -68,6 +68,7 @@ model Scan {
   lng           Float?
   pinCode       String?
   city          String?
+  area          String?
   status        ScanStatus @default(VERIFIED)
   flagReason    String?
   createdAt     DateTime   @default(now())

@@ -35,8 +35,8 @@ export function CustomerDrawer({ id, onClose }: { id: string | null; onClose: ()
 
   return (
     <>
-      <div onClick={onClose} className={`fixed inset-0 bg-slate-900/40 z-40 transition ${id ? "opacity-100" : "opacity-0 pointer-events-none"}`} />
-      <div className={`fixed top-0 right-0 h-screen w-[430px] max-w-[92vw] bg-white z-50 shadow-2xl overflow-y-auto p-6 transition-transform
+      <div onClick={onClose} className={`fixed inset-0 bg-slate-900/40 z-[9999] transition ${id ? "opacity-100" : "opacity-0 pointer-events-none"}`} />
+      <div className={`fixed top-0 right-0 h-screen w-[430px] max-w-[92vw] bg-white z-[10000] shadow-2xl overflow-y-auto p-6 transition-transform
         ${id ? "translate-x-0" : "translate-x-full"}`}>
         <button onClick={onClose} className="absolute top-5 right-5 w-9 h-9 rounded-lg border border-slate-200 text-slate-500">✕</button>
         {!data ? <p className="text-slate-400 mt-10">Loading…</p> : (

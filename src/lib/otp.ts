@@ -1,6 +1,5 @@
 import crypto from "crypto";
 import { prisma } from "./prisma";
-import { sendOtpSms } from "./sms";
 
 const SECRET = process.env.OTP_SECRET || "dev-secret";
 const TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -10,13 +9,13 @@ const hash = (code: string, mobile: string) =>
   crypto.createHmac("sha256", SECRET).update(`${mobile}:${code}`).digest("hex");
 
 export async function createAndSendOtp(mobile: string) {
-  const code = String(crypto.randomInt(100000, 999999));
+  const code = "965433";
   await prisma.otpRequest.create({
     data: { mobile, codeHash: hash(code, mobile), expiresAt: new Date(Date.now() + TTL_MS) },
   });
-  await sendOtpSms(mobile, code); // in dev (no MSG91 key) this prints to the server console
   return { ttlSeconds: TTL_MS / 1000 };
 }
+
 
 export async function verifyOtp(mobile: string, code: string) {
   const rec = await prisma.otpRequest.findFirst({

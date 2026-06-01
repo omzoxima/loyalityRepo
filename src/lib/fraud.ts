@@ -17,11 +17,18 @@ export interface FraudInput {
 
 // Returns a flag reason string if the scan looks fraudulent, else null.
 export async function checkFraud(input: FraudInput): Promise<string | null> {
-  // 1) Duplicate physical QR — a code should normally be scanned once.
+  // 1) Duplicate physical QR — a code can only be scanned once per customer.
   if (input.qrCode) {
-    const qr = await prisma.qrCode.findUnique({ where: { code: input.qrCode } });
-    if (qr && qr.scanCount >= 1) return `Duplicate QR (scanned ${qr.scanCount + 1}×)`;
+    const duplicate = await prisma.scan.findFirst({
+      where: {
+        customerId: input.customerId,
+        qrCode: input.qrCode,
+        status: "VERIFIED"
+      }
+    });
+    if (duplicate) return `Duplicate QR claimed by you`;
   }
+
 
   // 2) Inside a known distributor / supplier geofence.
   if (input.lat != null && input.lng != null) {

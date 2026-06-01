@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, Manrope } from "next/font/google";
+import "leaflet/dist/leaflet.css";
 import "./globals.css";
+
 
 const display = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-display" });
 const sans = Manrope({ subsets: ["latin"], variable: "--font-sans" });

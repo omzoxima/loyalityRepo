@@ -18,7 +18,7 @@ export default function Overview() {
   const KPI = ({ label, val, delta, flag }: any) => (
     <div className="bg-white border border-slate-200 rounded-2xl p-[18px] shadow-sm">
       <div className="text-[11.5px] font-bold text-slate-500 uppercase tracking-wide">{label}</div>
-      <div className={`font-display text-3xl font-extrabold mt-1.5 ${flag ? "text-rose-600" : ""}`}>{val}</div>
+      <div className={`font-display text-xl sm:text-2xl md:text-3xl font-extrabold mt-1.5 ${flag ? "text-rose-600" : ""}`}>{val}</div>
       {delta && <div className="text-xs font-bold mt-1 text-green-600">{delta}</div>}
     </div>
   );
@@ -63,22 +63,24 @@ export default function Overview() {
       </div>
 
       <Box title="Recent scans">
-        <table className="w-full text-sm">
-          <thead><tr className="text-slate-400 text-[11px] uppercase border-b border-slate-200">
-            <th className="text-left py-2">Time</th><th className="text-left">Customer</th><th className="text-left">City</th><th className="text-left">Jar</th><th className="text-left">Pts</th><th className="text-left">Status</th></tr></thead>
-          <tbody>
-            {scans.map((r) => (
-              <tr key={r.id} onClick={() => setSel(r.customerId)} className="border-b border-slate-50 hover:bg-bisleri-soft cursor-pointer">
-                <td className="py-2.5">{ago(r.time)}</td>
-                <td><span className="inline-block w-2.5 h-2.5 rounded-full mr-1.5" style={{ background: tierColor(r.tier) }} />{r.name}</td>
-                <td>{r.city}</td><td>{r.jar}</td><td>+{r.points}</td>
-                <td>{r.status === "FLAGGED"
-                  ? <span className="text-rose-600 text-xs font-bold">🚩 {r.flagReason}</span>
-                  : <span className="text-green-600 text-xs font-bold">✓ Verified</span>}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="overflow-x-auto -mx-5 px-5">
+          <table className="w-full text-sm min-w-[550px]">
+            <thead><tr className="text-slate-400 text-[11px] uppercase border-b border-slate-200">
+              <th className="text-left py-2">Time</th><th className="text-left">Customer</th><th className="text-left">City</th><th className="text-left">Jar</th><th className="text-left">Pts</th><th className="text-left">Status</th></tr></thead>
+            <tbody>
+              {scans.map((r) => (
+                <tr key={r.id} onClick={() => setSel(r.customerId)} className="border-b border-slate-50 hover:bg-bisleri-soft cursor-pointer">
+                  <td className="py-2.5">{ago(r.time)}</td>
+                  <td><span className="inline-block w-2.5 h-2.5 rounded-full mr-1.5" style={{ background: tierColor(r.tier) }} />{r.name}</td>
+                  <td>{r.city}</td><td>{r.jar}</td><td>+{r.points}</td>
+                  <td>{r.status === "FLAGGED"
+                    ? <span className="text-rose-600 text-xs font-bold">🚩 {r.flagReason}</span>
+                    : <span className="text-green-600 text-xs font-bold">✓ Verified</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Box>
 
       <CustomerDrawer id={sel} onClose={() => setSel(null)} />

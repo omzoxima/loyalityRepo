@@ -49,7 +49,19 @@ function Flow() {
           const j = await r.json();
           pinCode = j.address?.postcode;
           city = j.address?.city || j.address?.town || j.address?.state_district;
-          area = j.address?.suburb || j.address?.neighbourhood;
+          
+          // Combine detailed OpenStreetMap parameters to get a proper local address
+          const localParts = [
+            j.address?.road,
+            j.address?.neighbourhood,
+            j.address?.suburb,
+            j.address?.village,
+            j.address?.hamlet
+          ].filter(Boolean);
+          
+          area = localParts.join(", ");
+          if (!area) area = j.address?.city_district || j.address?.county || "Local Area";
+          
           label = "📍 " + [area, city].filter(Boolean).join(", ") + (pinCode ? ` · ${pinCode}` : "");
         } catch {}
         setGeo({ lat, lng, label, pinCode, city, area });
