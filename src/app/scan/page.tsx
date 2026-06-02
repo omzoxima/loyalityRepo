@@ -312,25 +312,19 @@ function Flow() {
               <span>I agree to the <a className="text-bisleri font-bold">Terms &amp; Conditions</a> and <a className="text-bisleri font-bold">Privacy Policy</a></span>
             </label>
             {geoBlocked && (
-              <div className="rounded-xl bg-rose-50 border border-rose-200 p-4 text-sm text-rose-800">
-                ❌ <b>Location access is required.</b> Bisleri requires location verification to confirm the purchase &amp; prevent fraud. You must enable location access in your browser/device settings to proceed.
-                <button onClick={detectLocation} className="block mt-2 text-rose-700 font-extrabold hover:underline">🔄 Try Enabling Location</button>
+              <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
+                ⚠️ Location is off. You can still proceed without it, but enabling it helps verify authenticity &amp; prevent fraud.
+                <button onClick={detectLocation} className="block mt-1.5 text-bisleri font-bold hover:underline">Enable location</button>
               </div>
             )}
             {err && <p className="text-rose-600 text-sm">{err}</p>}
             <div className="flex-1" />
             <button 
-              disabled={busy || !geo.lat || geoBlocked} 
+              disabled={busy} 
               onClick={onSave} 
-              className="rounded-xl bg-bisleri text-white font-extrabold py-4 disabled:opacity-60 disabled:cursor-not-allowed transition"
+              className="rounded-xl bg-bisleri text-white font-extrabold py-4 disabled:opacity-60 transition"
             >
-              {!geo.lat && !geoBlocked 
-                ? "⌛ Detecting Location…" 
-                : geoBlocked 
-                ? "🔒 Location Access Required" 
-                : busy 
-                ? "Saving…" 
-                : "Save & Send OTP →"}
+              {busy ? "Saving…" : "Save & Send OTP →"}
             </button>
             <p className="text-xs text-slate-500 text-center">Having trouble? <a className="text-bisleri font-bold">Contact Support</a></p>
           </div>
