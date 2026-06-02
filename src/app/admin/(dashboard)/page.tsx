@@ -9,8 +9,13 @@ export default function Overview() {
   const [sel, setSel] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/admin/stats").then((r) => r.json()).then(setS);
-    fetch("/api/admin/scans?take=6").then((r) => r.json()).then(setScans);
+    const loadData = () => {
+      fetch("/api/admin/stats").then((r) => r.json()).then(setS).catch(console.error);
+      fetch("/api/admin/scans?take=6").then((r) => r.json()).then(setScans).catch(console.error);
+    };
+    loadData();
+    const interval = setInterval(loadData, 3000); // Sync data in real-time every 3 seconds
+    return () => clearInterval(interval);
   }, []);
 
   const daily = (s?.daily ?? []).map((d: any) => ({ day: new Date(d.day).toLocaleDateString("en-IN", { weekday: "narrow" }), count: d.count }));

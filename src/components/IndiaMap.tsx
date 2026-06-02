@@ -86,6 +86,8 @@ export default function IndiaMap({ onSelect, filters, onLoadedData }: IndiaMapPr
       timeframeThreshold = now - 30 * 24 * 60 * 60 * 1000;
     }
 
+    const activeLatLngs: L.LatLng[] = [];
+
     customers.forEach((c) => {
       if (c.lat == null || c.lng == null) return;
 
@@ -112,6 +114,8 @@ export default function IndiaMap({ onSelect, filters, onLoadedData }: IndiaMapPr
         if (latestActivity < timeframeThreshold) return;
       }
 
+      activeLatLngs.push(L.latLng(c.lat, c.lng));
+
       // Create and add custom circle marker
       const m = L.circleMarker([c.lat, c.lng], {
         radius: 4 + c.totalSpend / 90000,
@@ -127,6 +131,25 @@ export default function IndiaMap({ onSelect, filters, onLoadedData }: IndiaMapPr
       );
       m.on("click", () => onSelect(c.id));
     });
+
+    // Smoothly adjust map view/zoom to match selected filters
+    if (filters.city !== "ALL" || filters.pincode !== "ALL") {
+      if (activeLatLngs.length > 0) {
+        const bounds = L.latLngBounds(activeLatLngs);
+        map.flyToBounds(bounds, {
+          padding: [50, 50],
+          maxZoom: filters.pincode !== "ALL" ? 14 : 11, // Zoom closer for specific pincodes
+          animate: true,
+          duration: 1.2
+        });
+      }
+    } else {
+      // Zoom out smoothly to show all of India
+      map.flyTo([22.5, 79], 4.6, {
+        animate: true,
+        duration: 1.2
+      });
+    }
   }, [customers, filters, onSelect]);
 
   return <div ref={ref} className="h-[480px] rounded-2xl overflow-hidden bg-slate-200" />;

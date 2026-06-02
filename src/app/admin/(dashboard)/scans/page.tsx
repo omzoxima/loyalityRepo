@@ -11,7 +11,7 @@ export default function Scans() {
     fetch(`/api/admin/scans?take=30${flaggedOnly ? "&flagged=1" : ""}`).then((r) => r.json()).then(setRows);
   }, [flaggedOnly]);
 
-  useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, [load]);
+  useEffect(() => { load(); const t = setInterval(load, 3000); return () => clearInterval(t); }, [load]);
 
   return (
     <div className="flex flex-col gap-4">

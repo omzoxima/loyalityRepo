@@ -36,6 +36,87 @@ function Flow() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
+  // Family Account states & handlers
+  const [familyMembers, setFamilyMembers] = useState<any[]>([]);
+  const [familyMobile, setFamilyMobile] = useState("");
+  const [familyOtp, setFamilyOtp] = useState("");
+  const [familyStep, setFamilyStep] = useState<"idle" | "otp">("idle");
+  const [familyErr, setFamilyErr] = useState("");
+  const [familyBusy, setFamilyBusy] = useState(false);
+
+  useEffect(() => {
+    if (screen === "success" && mobile) {
+      fetch(`/api/family?parentMobile=${mobile}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (Array.isArray(data)) setFamilyMembers(data);
+        })
+        .catch(console.error);
+    }
+  }, [screen, mobile]);
+
+  const onAddFamilySendOtp = async () => {
+    setFamilyErr("");
+    if (!/^[6-9]\d{9}$/.test(familyMobile)) return setFamilyErr("Enter a valid 10-digit mobile number");
+    if (familyMobile === mobile) return setFamilyErr("You cannot link your own number");
+    setFamilyBusy(true);
+    try {
+      await api("/api/send-otp", { mobile: familyMobile });
+      setFamilyStep("otp");
+    } catch (e: any) {
+      setFamilyErr(e.message);
+    } finally {
+      setFamilyBusy(false);
+    }
+  };
+
+  const onAddFamilyVerify = async () => {
+    setFamilyErr("");
+    if (!/^\d{4,6}$/.test(familyOtp)) return setFamilyErr("Enter verification code");
+    setFamilyBusy(true);
+    try {
+      const v = await api("/api/verify-otp", { mobile: familyMobile, code: familyOtp });
+      const addRes = await fetch("/api/family/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          parentMobile: mobile,
+          familyMobile: familyMobile,
+          scanToken: v.scanToken
+        })
+      });
+      const j = await addRes.json();
+      if (!addRes.ok) throw new Error(j.error || "Could not link family member");
+      
+      // Update local family list
+      setFamilyMembers((prev) => [j.member, ...prev]);
+      setFamilyMobile("");
+      setFamilyOtp("");
+      setFamilyStep("idle");
+    } catch (e: any) {
+      setFamilyErr(e.message);
+    } finally {
+      setFamilyBusy(false);
+    }
+  };
+
+  const onRemoveFamily = async (famMob: string) => {
+    setFamilyErr("");
+    if (!confirm("Are you sure you want to unlink this family member?")) return;
+    try {
+      const r = await fetch("/api/family/remove", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ parentMobile: mobile, familyMobile: famMob })
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "Could not unlink member");
+      setFamilyMembers((prev) => prev.filter((m) => m.mobile !== famMob));
+    } catch (e: any) {
+      alert(e.message);
+    }
+  };
+
   const detectLocation = () => {
     setGeoBlocked(false);
     setGeo({ label: "Detecting location…" });
@@ -71,6 +152,10 @@ function Flow() {
     );
   };
 
+  useEffect(() => {
+    detectLocation();
+  }, []);
+
   const api = async (path: string, body: any) => {
     const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const j = await r.json();
@@ -89,6 +174,10 @@ function Flow() {
         await api("/api/send-otp", { mobile });
         setScreen("otp");
       } else {
+        if (!qr) {
+          // Block registration for non-QR direct logins
+          return setErr("This mobile number is not registered. Please scan a Bisleri jar QR code to register and earn rewards.");
+        }
         setScreen("newuser");
         detectLocation();
       }
@@ -105,19 +194,40 @@ function Flow() {
     catch (e: any) { setErr(e.message); } finally { setBusy(false); }
   };
 
-  // Step 3 — verify OTP then record the scan (closure)
+  // Step 3 — verify OTP then record the scan or load profile (closure)
   const onConfirm = async () => {
     setErr("");
     if (!/^\d{4,6}$/.test(otp)) return setErr("Enter the OTP");
     setBusy(true);
     try {
       const v = await api("/api/verify-otp", { mobile, code: otp });
-      const res = await api("/api/scan", {
-        mobile, scanToken: v.scanToken, qrCode: qr, jarSize: jar.code,
-        name: name || undefined, lat: geo.lat, lng: geo.lng,
-        pinCode: geo.pinCode, city: geo.city, area: geo.area,
-      });
-      setScanToken(v.scanToken); setResult(res); setScreen("success");
+      if (!qr) {
+        // Direct login success: load verified profile data directly to dashboard
+        if (!v.exists || !v.customer) {
+          throw new Error("Account details not found. Please register first.");
+        }
+        setScanToken(v.scanToken);
+        setResult({
+          isDashboardOnly: true,
+          totalPoints: v.customer.points,
+          tier: v.customer.tier,
+          flagged: v.customer.isFlagged,
+          flagReason: v.customer.isFlagged ? "Flagged profile" : null,
+          pointsEarned: 0,
+          parentName: v.customer.parentName,
+          parentPoints: v.customer.parentPoints,
+          scansHistory: v.customer.scansHistory,
+        });
+        setScreen("success");
+      } else {
+        // Standard scan flow
+        const res = await api("/api/scan", {
+          mobile, scanToken: v.scanToken, qrCode: qr, jarSize: jar.code,
+          name: name || undefined, lat: geo.lat, lng: geo.lng,
+          pinCode: geo.pinCode, city: geo.city, area: geo.area,
+        });
+        setScanToken(v.scanToken); setResult(res); setScreen("success");
+      }
     } catch (e: any) { setErr(e.message); } finally { setBusy(false); }
   };
 
@@ -127,16 +237,32 @@ function Flow() {
       {screen === "mobile" && (
         <div className="fade-in flex flex-col min-h-screen">
           <div className="px-6 pt-12 pb-7 text-white relative overflow-hidden"
-            style={{ background: "linear-gradient(160deg,#0057A8,#003a72)" }}>
+            style={{ background: qr ? "linear-gradient(160deg,#0057A8,#003a72)" : "linear-gradient(160deg,#007A3E,#004D26)" }}>
             <Logo />
-            <div className="font-display text-2xl font-bold mt-4 leading-tight">Every drop counts.<br />Every jar rewards.</div>
-            <div className="text-sm opacity-80 mt-2">Scan • Earn • Redeem</div>
+            {qr ? (
+              <>
+                <div className="font-display text-2xl font-bold mt-4 leading-tight">Every drop counts.<br />Every jar rewards.</div>
+                <div className="text-sm opacity-80 mt-2">Scan • Earn • Redeem</div>
+              </>
+            ) : (
+              <>
+                <div className="font-display text-2xl font-bold mt-4 leading-tight">Member Loyalty<br />Dashboard Portal</div>
+                <div className="text-sm opacity-80 mt-2">View points, scans, &amp; family accounts</div>
+              </>
+            )}
           </div>
           <div className="p-6 flex flex-col gap-4 flex-1">
-            <div className="flex items-center gap-3 bg-bisleri-soft border border-cyan-100 rounded-2xl p-3">
-              <span className="w-9 h-11 rounded-md flex-none" style={{ background: "linear-gradient(#19C3E6,#0057A8)" }} />
-              <b className="text-sm">{jar.label} Jar detected</b>
-            </div>
+            {qr ? (
+              <div className="flex items-center gap-3 bg-bisleri-soft border border-cyan-100 rounded-2xl p-3">
+                <span className="w-9 h-11 rounded-md flex-none" style={{ background: "linear-gradient(#19C3E6,#0057A8)" }} />
+                <b className="text-sm">{jar.label} Jar detected</b>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-2xl p-3 text-green-800">
+                <span className="w-9 h-11 rounded-md flex-none bg-green-600 flex items-center justify-center text-white text-lg font-bold">👤</span>
+                <b className="text-sm">Direct Member Dashboard Access</b>
+              </div>
+            )}
             <label className="font-bold text-slate-800">Mobile Number</label>
             <div className="flex gap-2">
               <div className="px-4 grid place-items-center border-[1.5px] border-slate-200 rounded-xl bg-slate-100 font-bold">+91</div>
@@ -186,15 +312,25 @@ function Flow() {
               <span>I agree to the <a className="text-bisleri font-bold">Terms &amp; Conditions</a> and <a className="text-bisleri font-bold">Privacy Policy</a></span>
             </label>
             {geoBlocked && (
-              <div className="rounded-xl bg-bisleri-soft border border-cyan-100 p-3 text-sm">
-                📍 Location is off. Bisleri needs it to confirm the purchase &amp; prevent fraud.
-                <button onClick={detectLocation} className="block mt-2 text-bisleri font-bold">Enable location</button>
+              <div className="rounded-xl bg-rose-50 border border-rose-200 p-4 text-sm text-rose-800">
+                ❌ <b>Location access is required.</b> Bisleri requires location verification to confirm the purchase &amp; prevent fraud. You must enable location access in your browser/device settings to proceed.
+                <button onClick={detectLocation} className="block mt-2 text-rose-700 font-extrabold hover:underline">🔄 Try Enabling Location</button>
               </div>
             )}
             {err && <p className="text-rose-600 text-sm">{err}</p>}
             <div className="flex-1" />
-            <button disabled={busy} onClick={onSave} className="rounded-xl bg-bisleri text-white font-extrabold py-4 disabled:opacity-60">
-              {busy ? "Saving…" : "Save & Send OTP →"}
+            <button 
+              disabled={busy || !geo.lat || geoBlocked} 
+              onClick={onSave} 
+              className="rounded-xl bg-bisleri text-white font-extrabold py-4 disabled:opacity-60 disabled:cursor-not-allowed transition"
+            >
+              {!geo.lat && !geoBlocked 
+                ? "⌛ Detecting Location…" 
+                : geoBlocked 
+                ? "🔒 Location Access Required" 
+                : busy 
+                ? "Saving…" 
+                : "Save & Send OTP →"}
             </button>
             <p className="text-xs text-slate-500 text-center">Having trouble? <a className="text-bisleri font-bold">Contact Support</a></p>
           </div>
@@ -216,7 +352,7 @@ function Flow() {
             <small className="text-slate-500 text-center">In dev mode, the OTP prints to your server console.</small>
             {err && <p className="text-rose-600 text-sm text-center">{err}</p>}
             <button disabled={busy} onClick={onConfirm} className="rounded-xl bg-bisleri text-white font-extrabold py-4 disabled:opacity-60">
-              {busy ? "Confirming…" : "Confirm Purchase"}
+              {busy ? "Confirming…" : qr ? "Confirm Purchase" : "Login to Dashboard →"}
             </button>
             <div className="flex-1" />
           </div>
@@ -226,13 +362,31 @@ function Flow() {
       {/* ---------- 4 SUCCESS ---------- */}
       {screen === "success" && result && (
         <div className="fade-in flex flex-col min-h-screen pb-6">
-          <div className="text-center px-6 pt-12 pb-7 text-white" style={{ background: "linear-gradient(160deg,#0a8f4d,#0a7a5e)" }}>
-            <div className="w-[70px] h-[70px] rounded-full bg-white/20 grid place-items-center mx-auto mb-3 text-4xl">✓</div>
-            <h2 className="font-display text-2xl font-bold">
-              {result.flagged ? "Scan Received" : `You received ${result.pointsEarned} points!`}
-            </h2>
-            <p className="opacity-90 text-sm mt-1">{jar.label} Jar · {result.flagged ? "under review" : "Points credited to your account"}</p>
-          </div>
+          {result.isDashboardOnly ? (
+            <div className="text-center px-6 pt-12 pb-7 text-white" style={{ background: "linear-gradient(160deg,#0057A8,#003a72)" }}>
+              <div className="w-[70px] h-[70px] rounded-full bg-white/20 grid place-items-center mx-auto mb-3 text-4xl">👤</div>
+              <h2 className="font-display text-2xl font-bold">Member Profile Dashboard</h2>
+              <p className="opacity-90 text-sm mt-1">Manage your family links &amp; rewards</p>
+            </div>
+          ) : (
+            <div className="text-center px-6 pt-12 pb-7 text-white" style={{ background: result.flagged && result.flagReason?.includes("Duplicate") ? "linear-gradient(160deg,#D97706,#B45309)" : "linear-gradient(160deg,#0a8f4d,#0a7a5e)" }}>
+              <div className="w-[70px] h-[70px] rounded-full bg-white/20 grid place-items-center mx-auto mb-3 text-4xl">
+                {result.flagged && result.flagReason?.includes("Duplicate") ? "ℹ️" : "✓"}
+              </div>
+              <h2 className="font-display text-2xl font-bold">
+                {result.flagged && result.flagReason?.includes("Duplicate") 
+                  ? "Duplicate Scan Claimed" 
+                  : result.flagged 
+                  ? "Scan Received" 
+                  : `You received ${result.pointsEarned} points!`}
+              </h2>
+              <p className="opacity-90 text-sm mt-1">
+                {result.flagged && result.flagReason?.includes("Duplicate") 
+                  ? "Already scanned QR code" 
+                  : `${jar.label} Jar · ${result.flagged ? "under review" : "Points credited to your account"}`}
+              </p>
+            </div>
+          )}
           <div className="-mt-4 mx-4 bg-white rounded-2xl shadow-xl p-5 relative z-10">
             <div className="font-display text-4xl font-extrabold text-bisleri leading-none">
               {result.totalPoints} <span className="text-sm text-slate-500 font-semibold">total points</span>
@@ -250,9 +404,13 @@ function Flow() {
             )}
           </div>
           {result.flagged && (
-            <p className="mx-4 mt-3 text-xs text-rose-600 bg-rose-50 rounded-xl p-3">
-              This scan was flagged ({result.flagReason}) and is pending review. Points are awarded once verified.
-            </p>
+            <div className="mx-4 mt-3 text-xs rounded-xl p-3 bg-amber-50 border border-amber-200 text-amber-800">
+              {result.flagReason?.includes("Duplicate") ? (
+                <span>⚠️ <b>Points not credited.</b> You cannot get points because you have already claimed points for this QR code.</span>
+              ) : (
+                <span>🚩 This scan was flagged ({result.flagReason}) and is pending review. Points are awarded once verified.</span>
+              )}
+            </div>
           )}
 
           {/* Dynamic WhatsApp Share with exact points and jar detail */}
@@ -306,6 +464,124 @@ function Flow() {
               </div>
             </div>
           )}
+
+          {/* Point Pooling Banner if linked family member */}
+          {result.parentPoints !== null && result.parentName !== null && (
+            <div className="mx-4 mt-3 bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-800 font-semibold flex flex-col gap-1 shadow-sm">
+              <div className="flex items-center gap-1.5 font-bold">
+                <span>👨‍👩‍👧‍👦 Family Point Pooling Active</span>
+              </div>
+              <p className="text-amber-700 leading-normal font-medium">
+                This scan's points were also pooled directly to your family parent account: <b>{result.parentName}</b>.
+              </p>
+              <div className="mt-1 bg-white/60 rounded px-2.5 py-1 self-start font-bold">
+                Total Parent Points: <span className="text-amber-900 font-extrabold">{result.parentPoints} pts</span>
+              </div>
+            </div>
+          )}
+
+          {/* 👨‍👩‍👧‍👦 Family Accounts Dashboard - Render only if this is a parent customer (no parentName in result) */}
+          {result.parentPoints === null && (
+            <div className="mx-4 mt-4 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+              <h3 className="font-display text-sm font-bold text-slate-800 mb-3 flex items-center justify-between">
+                <span>👨‍👩‍👧‍👦 Family Accounts (Point Pooling)</span>
+                <span className="text-[10px] font-extrabold text-bisleri bg-bisleri-soft rounded-full px-2.5 py-0.5 uppercase tracking-wide">
+                  {familyMembers.length} linked
+                </span>
+              </h3>
+              
+              <p className="text-xs text-slate-500 mb-4">
+                Link family numbers so their loyalty scan points pool directly into both accounts.
+              </p>
+
+            {/* List of members */}
+            {familyMembers.length > 0 ? (
+              <div className="flex flex-col gap-2 mb-4">
+                {familyMembers.map((m) => (
+                  <div key={m.id} className="flex justify-between items-center bg-[#fdfdfc] border border-slate-100 rounded-xl p-3 text-xs">
+                    <div>
+                      <div className="font-bold text-slate-700">{m.name}</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        +91 {m.mobile.slice(0, 2)}XXX {m.mobile.slice(-5)} · {m.tier} member
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-extrabold text-bisleri bg-bisleri-soft px-2 py-0.5 rounded-full">
+                        {m.points} pts
+                      </span>
+                      <button 
+                        onClick={() => onRemoveFamily(m.mobile)}
+                        className="text-slate-400 hover:text-rose-600 font-bold px-1.5 py-0.5 text-[11px] rounded hover:bg-rose-50 transition"
+                        title="Remove family member"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-4 bg-slate-50 rounded-xl border border-dashed border-slate-200 mb-4 text-xs text-slate-400">
+                No family members linked yet.
+              </div>
+            )}
+
+            {/* Add Member Form */}
+            <div className="border-t border-slate-100 pt-4 mt-2">
+              <h4 className="text-xs font-bold text-slate-700 mb-2.5">Add Family Member</h4>
+              {familyStep === "idle" ? (
+                <div className="flex gap-2">
+                  <div className="flex-1 flex gap-2">
+                    <div className="px-3 grid place-items-center border-[1.5px] border-slate-200 rounded-lg bg-slate-100 font-bold text-xs">+91</div>
+                    <input 
+                      value={familyMobile} 
+                      onChange={(e) => setFamilyMobile(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                      placeholder="Family mobile number"
+                      inputMode="numeric"
+                      className="flex-1 px-3 py-2 border-[1.5px] border-slate-200 rounded-lg bg-white outline-none focus:border-bisleri text-xs" 
+                    />
+                  </div>
+                  <button 
+                    disabled={familyBusy}
+                    onClick={onAddFamilySendOtp}
+                    className="bg-bisleri text-white font-bold px-4 py-2 rounded-lg text-xs disabled:opacity-60"
+                  >
+                    {familyBusy ? "Sending…" : "Link"}
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2 bg-bisleri-soft border border-cyan-100 rounded-xl p-3.5">
+                  <p className="text-[10px] text-slate-500 font-semibold mb-1">
+                    Enter the 6-digit verification code sent to +91 {familyMobile}
+                  </p>
+                  <div className="flex gap-2">
+                    <input 
+                      value={familyOtp} 
+                      onChange={(e) => setFamilyOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      placeholder="Enter verification code"
+                      inputMode="numeric"
+                      className="flex-1 px-3 py-2 border-[1.5px] border-cyan-200 rounded-lg bg-white outline-none focus:border-bisleri text-xs text-center font-bold tracking-[0.2em]" 
+                    />
+                    <button 
+                      disabled={familyBusy}
+                      onClick={onAddFamilyVerify}
+                      className="bg-bisleri text-white font-bold px-4 py-2 rounded-lg text-xs disabled:opacity-60"
+                    >
+                      {familyBusy ? "Verifying…" : "Confirm"}
+                    </button>
+                    <button 
+                      onClick={() => { setFamilyStep("idle"); setFamilyOtp(""); }}
+                      className="bg-white border border-slate-200 text-slate-500 font-bold px-3 py-2 rounded-lg text-xs"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+              {familyErr && <p className="text-rose-600 text-[11px] mt-1.5 font-semibold">{familyErr}</p>}
+            </div>
+          </div>
+        )}
 
           <div className="px-4 mt-4">
             <button

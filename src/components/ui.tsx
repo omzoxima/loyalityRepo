@@ -57,6 +57,30 @@ export function CustomerDrawer({ id, onClose }: { id: string | null; onClose: ()
               ))}
             </div>
             <p className="text-xs text-slate-500 mb-3">📍 {data.pinCode || "—"} · joined {new Date(data.joined).toLocaleDateString("en-IN")}</p>
+            
+            {/* Family Account info in Admin Customer Drawer */}
+            {data.parent && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs mb-3.5 text-amber-800">
+                👨‍👩‍👧‍👦 <b>Family Account</b>: Linked to parent customer <b>{data.parent.name}</b> ({data.parent.mobile}). Points from scans pool directly into both accounts.
+              </div>
+            )}
+
+            {data.familyMembers && data.familyMembers.length > 0 && (
+              <div className="bg-bisleri-soft border border-cyan-100 rounded-xl p-3.5 text-xs mb-3.5 text-cyan-800">
+                👨‍👩‍👧‍👦 <b>Linked Family Members</b> ({data.familyMembers.length}):
+                <div className="flex flex-col gap-1.5 mt-2">
+                  {data.familyMembers.map((m: any) => (
+                    <div key={m.id} className="flex justify-between items-center bg-white/70 border border-cyan-100/50 rounded-lg p-2 font-medium">
+                      <span>{m.name} ({m.mobile})</span>
+                      <span className="bg-bisleri text-white font-extrabold px-2 py-0.5 rounded-full text-[10px]">
+                        {m.points} pts · {tierLabel(m.tier)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <Box title="Purchase history">
               <table className="w-full text-sm">
                 <thead><tr className="text-slate-400 text-[11px] uppercase"><th className="text-left py-1.5">Date</th><th className="text-left">Jar</th><th className="text-left">Value</th><th className="text-left">Pts</th></tr></thead>

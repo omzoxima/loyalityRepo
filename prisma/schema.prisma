@@ -41,6 +41,11 @@ model Customer {
   createdAt      DateTime @default(now())
   scans          Scan[]
 
+  // Self-referential family linking
+  parentId       String?
+  parent         Customer?  @relation("FamilyRelation", fields: [parentId], references: [id])
+  familyMembers  Customer[] @relation("FamilyRelation")
+
   @@index([pinCode])
   @@index([city])
 }

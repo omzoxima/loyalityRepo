@@ -12,11 +12,11 @@ const schema = z.object({
   qrCode: z.string().min(1),                  // strictly require a QR code
   jarSize: z.enum(["TENL", "TWENTYL"]),
   name: z.string().min(1).optional(),       // required only for new customers
-  lat: z.number().optional(),
-  lng: z.number().optional(),
-  pinCode: z.string().optional(),
-  city: z.string().optional(),
-  area: z.string().optional(),
+  lat: z.number().nullable().optional(),
+  lng: z.number().nullable().optional(),
+  pinCode: z.string().nullable().optional(),
+  city: z.string().nullable().optional(),
+  area: z.string().nullable().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -44,17 +44,26 @@ export async function POST(req: NextRequest) {
         lat: d.lat, lng: d.lng,
       },
     });
+  } else {
+    // Dynamically update existing customer profile with their latest active scan location
+    if (d.lat != null && d.lng != null) {
+      customer = await prisma.customer.update({
+        where: { id: customer.id },
+        data: {
+          lat: d.lat,
+          lng: d.lng,
+          pinCode: d.pinCode || customer.pinCode,
+          city: d.city || customer.city,
+          area: d.area || customer.area,
+        },
+      });
+    }
   }
 
   const rule = jarRule(d.jarSize as JarSize);
   const flagReason = await checkFraud({ qrCode: d.qrCode, lat: d.lat, lng: d.lng, customerId: customer.id });
 
-  // Strictly block duplicate scans for the same customer
-  if (flagReason && flagReason.includes("Duplicate QR")) {
-    return NextResponse.json({ 
-      error: "You have already scanned this QR code. Each QR code can only be claimed once per customer." 
-    }, { status: 400 });
-  }
+
 
   const status = flagReason ? "FLAGGED" : "VERIFIED";
 
@@ -85,6 +94,23 @@ export async function POST(req: NextRequest) {
         scanCount: { increment: 1 }, tier: tierFor(points),
       },
     });
+
+    // POOL POINTS TO PARENT ACCOUNT
+    if (customer.parentId) {
+      const parentCustomer = await prisma.customer.findUnique({ where: { id: customer.parentId } });
+      if (parentCustomer) {
+        const parentPoints = parentCustomer.points + rule.points;
+        await prisma.customer.update({
+          where: { id: parentCustomer.id },
+          data: {
+            points: parentPoints,
+            totalSpend: { increment: rule.valuePaise },
+            scanCount: { increment: 1 },
+            tier: tierFor(parentPoints),
+          },
+        });
+      }
+    }
   } else {
     await prisma.customer.update({ where: { id: customer.id }, data: { isFlagged: true } });
   }
@@ -104,6 +130,20 @@ export async function POST(req: NextRequest) {
     },
   });
 
+  // Fetch parent info if linked to return in response
+  let parentName = null;
+  let parentPoints = null;
+  if (updated.parentId) {
+    const parentCustomer = await prisma.customer.findUnique({
+      where: { id: updated.parentId },
+      select: { name: true, points: true }
+    });
+    if (parentCustomer) {
+      parentName = parentCustomer.name;
+      parentPoints = parentCustomer.points;
+    }
+  }
+
   return NextResponse.json({
     ok: status === "VERIFIED",
     flagged: status === "FLAGGED",
@@ -113,6 +153,8 @@ export async function POST(req: NextRequest) {
     tier: updated.tier,
     next: nextTier(updated.points),
     jarLabel: rule.label,
+    parentName,
+    parentPoints,
     scansHistory: scansHistory.map((s) => ({
       id: s.id,
       date: s.createdAt,
